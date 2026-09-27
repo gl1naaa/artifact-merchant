@@ -22,7 +22,8 @@ def clear() -> None:
 
 
 def width() -> int:
-    return max(72, min(shutil.get_terminal_size((100, 30)).columns, 120))
+    """Return a usable layout width without overflowing narrow terminals."""
+    return max(40, min(shutil.get_terminal_size((80, 24)).columns, 120))
 
 
 def color(text: str, tone: str = PAPER, bold: bool = False) -> str:
@@ -43,13 +44,15 @@ def panel(title: str, rows: list[str], tone: str = CYAN) -> list[str]:
 
 
 def header(day: int, gold: int, reputation: int) -> list[str]:
-    return [
-        color("  ◈ ARTIFACT MERCHANT", YELLOW, True)
-        + color(f"    DAY {day:02d}    ", MUTED)
-        + color(f"◆ {gold:>5} gold", YELLOW)
-        + color(f"    reputation {reputation:+d}", GREEN if reputation >= 0 else RED),
-        rule(),
-    ]
+    title = color("  ◈ ARTIFACT MERCHANT", YELLOW, True)
+    stats = (
+        color(f"DAY {day:02d}", MUTED)
+        + color(f"  ◆ {gold}g", YELLOW)
+        + color(f"  REP {reputation:+d}", GREEN if reputation >= 0 else RED)
+    )
+    if width() < 68:
+        return [title, stats, rule()]
+    return [title + "    " + stats, rule()]
 
 
 def dashboard(day: int = 1, gold: int = 420, reputation: int = 0) -> None:
