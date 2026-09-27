@@ -7,10 +7,19 @@ from pathlib import Path
 from . import __version__
 from .commands import HELP, Command, load_script, parse
 from .input import read_command
+from .game import GameState
 from .ui import dashboard, help_screen
 
 
-def execute(command: Command) -> bool:
+def _show_items(title: str, items: list) -> None:
+    print(f"\n  {title}")
+    if not items:
+        print("  (пусто)")
+    for item in items:
+        print(f"  {item.id:<20} {item.name:<24} {item.sell_price:>10,} кр.")
+
+
+def execute(command: Command, state: GameState) -> bool:
     """Execute a UI command. Returns False when the session should end."""
     name = command.name
     if name in {"q", "quit", "exit", "выход"}:
@@ -20,10 +29,29 @@ def execute(command: Command) -> bool:
         help_screen()
     elif name in {"clear", "cls"}:
         return True
-    elif name in {"inventory", "market", "location", "status", "orders", "factions", "upgrades", "journal", "wait", "save", "load", "inspect", "buy", "sell", "research"}:
-        subject = f" {command.args[0]}" if command.args else ""
-        print(f"\n  Команда принята: {name}{subject}")
-        print("  Игровая логика этого раздела будет подключена следующим вертикальным срезом.")
+    elif name == "status":
+        print(f"\n  {state.status()}")
+        input("  Enter — продолжить...")
+    elif name == "inventory":
+        _show_items("ИНВЕНТАРЬ", state.inventory)
+        input("  Enter — продолжить...")
+    elif name == "market":
+        _show_items("РЫНОК", state.market)
+        input("  Enter — продолжить...")
+    elif name == "journal":
+        print("\n  ЖУРНАЛ")
+        print("\n".join(f"  • {entry}" for entry in state.journal[-10:]))
+        input("  Enter — продолжить...")
+    elif name == "buy":
+        ok, message = state.buy(command.args[0] if command.args else "")
+        print(f"\n  {'OK' if ok else 'ERROR'}: {message}")
+        input("  Enter — продолжить...")
+    elif name == "sell":
+        ok, message = state.sell(command.args[0] if command.args else "")
+        print(f"\n  {'OK' if ok else 'ERROR'}: {message}")
+        input("  Enter — продолжить...")
+    elif name in {"location", "orders", "factions", "upgrades", "wait", "save", "load", "inspect", "research"}:
+        print(f"\n  Команда принята: {name}. Этот модуль будет подключён следующим срезом.")
         input("  Enter — продолжить...")
     elif name:
         print(f"\n  Неизвестная команда: {name}. Напишите help.")
@@ -33,8 +61,9 @@ def execute(command: Command) -> bool:
 
 def run_script(path: str) -> None:
     root = Path.cwd() / "scripts"
+    state = GameState.new()
     for command in load_script(path, root if Path(path).parent == Path("scripts") else None):
-        if not execute(command):
+        if not execute(command, state):
             break
 
 
@@ -47,8 +76,9 @@ def main() -> None:
         if line == "--version":
             print(version())
             return
+    state = GameState.new()
     while True:
-        dashboard()
+        dashboard(state.day, state.gold, state.reputation)
         try:
             command = parse(read_command("\n> "))
         except (EOFError, KeyboardInterrupt):
@@ -65,7 +95,7 @@ def main() -> None:
                     print(f"\n  Ошибка скрипта: {exc}")
                     input("  Enter — продолжить...")
             continue
-        if not execute(command):
+        if not execute(command, state):
             return
 
 
