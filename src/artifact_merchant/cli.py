@@ -11,6 +11,23 @@ from .game import GameState
 from .ui import dashboard, help_screen
 
 
+def _completion_provider(state: GameState):
+    commands = [key.split()[0] for key in HELP]
+    artifact_ids = [item.id for item in state.market + state.inventory]
+
+    def complete(text: str) -> list[str]:
+        parts = text.split()
+        if len(parts) <= 1:
+            prefix = parts[0] if parts else ""
+            return sorted({item for item in commands if item.startswith(prefix)})
+        if parts[0].lower() in {"buy", "sell", "inspect", "research", "contain", "store", "cleanse"}:
+            prefix = parts[-1]
+            return [item for item in artifact_ids if item.startswith(prefix)]
+        return []
+
+    return complete
+
+
 def _show_items(title: str, items: list) -> list[str]:
     rows = [title]
     if not items:
@@ -76,7 +93,7 @@ def main() -> None:
             # Move into that row so input remains inside the frame.
             sys.stdout.write("\033[2A\r\033[2K│ > ")
             sys.stdout.flush()
-            command = parse(read_command(""))
+            command = parse(read_command("", _completion_provider(state)))
         except (EOFError, KeyboardInterrupt):
             print("\nДо встречи.")
             return

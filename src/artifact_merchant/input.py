@@ -7,17 +7,19 @@ import sys
 from .commands import HELP
 
 
-def _complete(prefix: str) -> list[str]:
+def _complete(prefix: str, provider=None) -> list[str]:
+    if provider is not None:
+        return provider(prefix)
     word = prefix.split()[-1] if prefix.split() else ""
     return [name for name in HELP if name.startswith(word)]
 
 
-def read_command(prompt: str = "> ") -> str:
+def read_command(prompt: str = "> ", provider=None) -> str:
     """Read one line and complete command names with Tab."""
     if os.name != "nt":
         try:
             import readline
-            readline.set_completer(lambda text, state: (_complete(text) + [None])[state])
+            readline.set_completer(lambda text, state: (_complete(text, provider) + [None])[state])
             readline.parse_and_bind("tab: complete")
         except ImportError:
             pass
@@ -45,7 +47,7 @@ def read_command(prompt: str = "> ") -> str:
             continue
         if key == "\t":
             if not matches:
-                matches = _complete(text)
+                matches = _complete(text, provider)
                 match_index = 0
             if matches:
                 replacement = matches[match_index % len(matches)]
