@@ -17,6 +17,8 @@ class Artifact:
     sell_price: int
     identified: bool = False
     authentic: bool = True
+    hidden_property: str = "Неизвестное свойство"
+    revealed_property: bool = False
 
 
 @dataclass
@@ -43,7 +45,15 @@ class GameState:
         market = []
         for item_id, name, category, rarity, weight, sell_price in stock:
             buy_price = int(sell_price * rng.uniform(.70, .82))
-            market.append(Artifact(item_id, name, category, rarity, weight, sell_price, buy_price, sell_price))
+            hidden = {
+                "void_shard": "Искажает локальное пространство",
+                "ancient_compass": "Указывает на ближайший разлом",
+                "observer_claw": "Реагирует на сознание наблюдателя",
+                "ash_heart": "Сохраняет тепло погибшей звезды",
+                "whispering_idol": "Шепчет имена будущих покупателей",
+                "quantum_stabilizer": "Стабилизирует нестабильные артефакты",
+            }[item_id]
+            market.append(Artifact(item_id, name, category, rarity, weight, sell_price, buy_price, sell_price, hidden_property=hidden))
         state = cls(market=market, rng_seed=seed)
         state.journal.append("Лавка открыта. Новый день начинается.")
         return state
@@ -58,6 +68,8 @@ class GameState:
         item = self.find_market(item_id)
         if item is None:
             return False, f"Артефакт не найден на рынке: {item_id}"
+        if len(self.inventory) >= 20:
+            return False, "Инвентарь заполнен (20/20)."
         if self.gold < item.buy_price:
             return False, f"Недостаточно кредитов: нужно {item.buy_price:,} кр."
         self.gold -= item.buy_price
@@ -75,6 +87,30 @@ class GameState:
         self.reputation += 1
         self.journal.append(f"Продажа: {item.name} за {item.sell_price:,} кр.")
         return True, f"Продано: {item.name} за {item.sell_price:,} кр."
+
+    def inspect(self, item_id: str) -> tuple[bool, list[str]]:
+        item = self.find_inventory(item_id) or self.find_market(item_id)
+        if item is None:
+            return False, [f"Артефакт не найден: {item_id}"]
+        rows = [f"{item.name} [{item.rarity}]", f"Категория: {item.category}", f"Вес: {item.weight:.1f} кг", f"Оценка: {item.sell_price:,} кр."]
+        rows.append("Подлинность: не проверена" if not item.identified else ("Подлинность: подтверждена" if item.authentic else "Подлинность: сомнительна"))
+        rows.append(f"Свойство: {item.hidden_property}" if item.revealed_property else "Свойство: неизвестно (нужна research)")
+        return True, rows
+
+    def research(self, item_id: str) -> tuple[bool, list[str]]:
+        item = self.find_inventory(item_id)
+        if item is None:
+            return False, [f"Исследовать можно только предмет в инвентаре: {item_id}"]
+        if item.revealed_property:
+            return True, [f"Свойство уже раскрыто: {item.hidden_property}"]
+        cost = 1_500
+        if self.gold < cost:
+            return False, [f"Недостаточно кредитов для исследования: нужно {cost:,} кр."]
+        self.gold -= cost
+        item.revealed_property = True
+        item.identified = True
+        self.journal.append(f"Исследование: раскрыто свойство {item.name} за {cost:,} кр.")
+        return True, [f"Исследование завершено: {item.hidden_property}", f"Стоимость: {cost:,} кр."]
 
     def status(self) -> str:
         return f"День {self.day} · {self.gold:,} кр. · репутация {self.reputation:+d} · инвентарь {len(self.inventory)}/20"

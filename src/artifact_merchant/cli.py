@@ -8,7 +8,7 @@ from . import __version__
 from .commands import HELP, Command, load_script, parse
 from .input import read_command
 from .game import GameState
-from .ui import dashboard, help_screen
+from .ui import dashboard
 
 
 def _completion_provider(state: GameState):
@@ -59,18 +59,24 @@ def execute(command: Command, state: GameState, console: list[str]) -> bool:
     elif name == "sell":
         ok, message = state.sell(command.args[0] if command.args else "")
         console.append(f"{'OK' if ok else 'ERROR'}: {message}")
-    elif name in {"location", "orders", "factions", "upgrades", "wait", "save", "load", "inspect", "research"}:
+    elif name in {"inspect", "research"}:
+        item_id = command.args[0] if command.args else ""
+        ok, rows = (state.inspect(item_id) if name == "inspect" else state.research(item_id))
+        console.extend([f"{'OK' if ok else 'ERROR'}: {row}" for row in rows])
+    elif name in {"location", "orders", "factions", "upgrades", "wait", "save", "load"}:
         console.append(f"Команда принята: {name}. Модуль будет подключён следующим срезом.")
     elif name:
         console.append(f"Неизвестная команда: {name}. Напишите help.")
     return True
 
 
-def run_script(path: str) -> None:
+def run_script(path: str, state: GameState, console: list[str]) -> None:
     root = Path.cwd() / "scripts"
-    state = GameState.new()
-    console: list[str] = []
-    for command in load_script(path, root if Path(path).parent == Path("scripts") else None):
+    relative = Path(path)
+    if relative.parts and relative.parts[0].lower() == "scripts":
+        relative = Path(*relative.parts[1:])
+    for command in load_script(str(relative), root):
+        console.append(f"> {command.name} {' '.join(command.args)}".rstrip())
         if not execute(command, state, console):
             break
 
@@ -100,14 +106,12 @@ def main() -> None:
         console.append(f"> {command.name} {' '.join(command.args)}".rstrip())
         if command.name == "script":
             if not command.args:
-                print("\n  Использование: script scripts/day.am")
-                input("  Enter — продолжить...")
+                console.append("Использование: script scripts/day.am")
             else:
                 try:
-                    run_script(command.args[0])
+                    run_script(command.args[0], state, console)
                 except (OSError, ValueError) as exc:
-                    print(f"\n  Ошибка скрипта: {exc}")
-                    input("  Enter — продолжить...")
+                    console.append(f"Ошибка скрипта: {exc}")
             continue
         if not execute(command, state, console):
             return
