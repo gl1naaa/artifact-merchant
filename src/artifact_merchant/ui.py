@@ -85,8 +85,8 @@ def _row(number: str, icon: str, name: str, weight: str, value: str, rarity: str
             + f"{name:<22} {weight:>4}  {value:>9}  " + color(rarity, rarity_color))
 
 
-def dashboard(state) -> None:
-    """Render the workstation from the live game state."""
+def dashboard(state, console: list[str] | None = None) -> None:
+    """Render the workstation and its persistent Linux-like command console."""
     clear()
     day, gold, reputation = state.day, state.gold, state.reputation
     w = width()
@@ -158,7 +158,11 @@ def dashboard(state) -> None:
         lines.append("")
     journal = [color("События", MUTED)] + ["• " + entry for entry in state.journal[-5:]]
     lines += _box("ЖУРНАЛ СОБЫТИЙ", journal, w, BLUE)
-    lines += ["", color("inventory   market   inspect <id>   buy <id>   sell <id>   help   quit", GREEN), color("> ", GREEN, True)]
+    console = console or []
+    console_rows = [color(line, GREEN if line.startswith("OK") or line.startswith(">") else PAPER) for line in console[-6:]]
+    console_rows.append(color("$ terminal ready · type help", GREEN))
+    lines += [""] + _box("TERMINAL · SCROLLBACK", console_rows, w, GREEN)
+    lines += [color("$ ", GREEN, True)]
     print("\n".join(lines))
 
 

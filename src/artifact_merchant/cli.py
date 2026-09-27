@@ -11,59 +11,50 @@ from .game import GameState
 from .ui import dashboard, help_screen
 
 
-def _show_items(title: str, items: list) -> None:
-    print(f"\n  {title}")
+def _show_items(title: str, items: list) -> list[str]:
+    rows = [title]
     if not items:
-        print("  (пусто)")
-    for item in items:
-        print(f"  {item.id:<20} {item.name:<24} {item.sell_price:>10,} кр.")
+        return rows + ["(пусто)"]
+    return rows + [f"{item.id:<20} {item.name:<24} {item.sell_price:>10,} кр." for item in items]
 
 
-def execute(command: Command, state: GameState) -> bool:
+def execute(command: Command, state: GameState, console: list[str]) -> bool:
     """Execute a UI command. Returns False when the session should end."""
     name = command.name
     if name in {"q", "quit", "exit", "выход"}:
-        print("До встречи, торговец.")
+        console.append("До встречи, торговец.")
         return False
     if name in {"h", "help", "помощь"}:
-        help_screen()
+        console.extend(["COMMANDS", "  inventory          показать инвентарь", "  market             открыть рынок", "  buy <id>           купить артефакт", "  sell <id>          продать артефакт", "  status             состояние лавки", "  journal            журнал событий", "  clear              очистить терминал", "  quit               выйти"])
     elif name in {"clear", "cls"}:
-        return True
+        console.clear()
     elif name == "status":
-        print(f"\n  {state.status()}")
-        input("  Enter — продолжить...")
+        console.append(state.status())
     elif name == "inventory":
-        _show_items("ИНВЕНТАРЬ", state.inventory)
-        input("  Enter — продолжить...")
+        console.extend(_show_items("ИНВЕНТАРЬ", state.inventory))
     elif name == "market":
-        _show_items("РЫНОК", state.market)
-        input("  Enter — продолжить...")
+        console.extend(_show_items("РЫНОК", state.market))
     elif name == "journal":
-        print("\n  ЖУРНАЛ")
-        print("\n".join(f"  • {entry}" for entry in state.journal[-10:]))
-        input("  Enter — продолжить...")
+        console.extend(["ЖУРНАЛ"] + [f"• {entry}" for entry in state.journal[-10:]])
     elif name == "buy":
         ok, message = state.buy(command.args[0] if command.args else "")
-        print(f"\n  {'OK' if ok else 'ERROR'}: {message}")
-        input("  Enter — продолжить...")
+        console.append(f"{'OK' if ok else 'ERROR'}: {message}")
     elif name == "sell":
         ok, message = state.sell(command.args[0] if command.args else "")
-        print(f"\n  {'OK' if ok else 'ERROR'}: {message}")
-        input("  Enter — продолжить...")
+        console.append(f"{'OK' if ok else 'ERROR'}: {message}")
     elif name in {"location", "orders", "factions", "upgrades", "wait", "save", "load", "inspect", "research"}:
-        print(f"\n  Команда принята: {name}. Этот модуль будет подключён следующим срезом.")
-        input("  Enter — продолжить...")
+        console.append(f"Команда принята: {name}. Модуль будет подключён следующим срезом.")
     elif name:
-        print(f"\n  Неизвестная команда: {name}. Напишите help.")
-        input("  Enter — продолжить...")
+        console.append(f"Неизвестная команда: {name}. Напишите help.")
     return True
 
 
 def run_script(path: str) -> None:
     root = Path.cwd() / "scripts"
     state = GameState.new()
+    console: list[str] = []
     for command in load_script(path, root if Path(path).parent == Path("scripts") else None):
-        if not execute(command, state):
+        if not execute(command, state, console):
             break
 
 
@@ -77,13 +68,15 @@ def main() -> None:
             print(version())
             return
     state = GameState.new()
+    console = ["Connected to the Gilded Veil terminal.", "Type help for available commands."]
     while True:
-        dashboard(state)
+        dashboard(state, console)
         try:
             command = parse(read_command("\n> "))
         except (EOFError, KeyboardInterrupt):
             print("\nДо встречи.")
             return
+        console.append(f"> {command.name} {' '.join(command.args)}".rstrip())
         if command.name == "script":
             if not command.args:
                 print("\n  Использование: script scripts/day.am")
@@ -95,7 +88,7 @@ def main() -> None:
                     print(f"\n  Ошибка скрипта: {exc}")
                     input("  Enter — продолжить...")
             continue
-        if not execute(command, state):
+        if not execute(command, state, console):
             return
 
 
