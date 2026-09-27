@@ -85,9 +85,10 @@ def _row(number: str, icon: str, name: str, weight: str, value: str, rarity: str
             + f"{name:<22} {weight:>4}  {value:>9}  " + color(rarity, rarity_color))
 
 
-def dashboard(day: int = 42, gold: int = 248750, reputation: int = 68) -> None:
-    """Render the main workstation in the style of the supplied mockup."""
+def dashboard(state) -> None:
+    """Render the workstation from the live game state."""
     clear()
+    day, gold, reputation = state.day, state.gold, state.reputation
     w = width()
     compact = w < 112
     left_w = (w - 5) // 2 if not compact else w
@@ -101,29 +102,31 @@ def dashboard(day: int = 42, gold: int = 248750, reputation: int = 68) -> None:
         + color("   |   Репутация: ", MUTED) + color(f"{reputation}", GREEN),
         rule(),
     ]
-    inventory = [
-        color("#    Предмет                    Вес   Ценность  Редкость", MUTED),
-        _row("1", "◇", "Осколок Пустоты", "0.5", "12,000", "Легендарный", YELLOW),
-        _row("2", "✥", "Древний Компас", "1.2", "8,500", "Редкий", BLUE),
-        _row("3", "◈", "Коготь Наблюдателя", "0.8", "6,200", "Необычный", GREEN),
-        _row("4", "✧", "Сердце Пепла", "1.5", "9,800", "Редкий", BLUE),
-        _row("5", "♢", "Шепчущий Идол", "0.7", "15,000", "Эпический", PURPLE),
-        _row("6", "◎", "Квантовый Стабилизатор", "2.1", "22,000", "Обычный", PAPER),
-    ]
-    market = [
-        color("Предмет                       Покупка     Продажа   Спрос", MUTED),
-        color("◇  Осколок Пустоты", YELLOW) + "             420,000    " + color("575,000", GREEN) + "   ▲▲▲",
-        "✥  Древний Компас              95,000    " + color("132,000", GREEN) + "   ▲▲",
-        "◈  Слеза Архонта              210,000    " + color("295,000", GREEN) + "   ▲▲▲",
-        "◈  Коготь Наблюдателя          48,000    " + color("71,000", GREEN) + "   ▼",
-        "✧  Сердце Пепла               110,000    " + color("160,000", GREEN) + "   ▲▲",
-        "♢  Шепчущий Идол              250,000    " + color("340,000", GREEN) + "   ▲▲",
-    ]
+    icons = ["◇", "✥", "◈", "✧", "♢", "◎"]
+    rarity_tones = {"легендарный": YELLOW, "эпический": PURPLE, "редкий": BLUE, "необычный": GREEN}
+    inventory = [color("#    Предмет                    Вес   Ценность  Редкость", MUTED)]
+    for index, item in enumerate(state.inventory, 1):
+        inventory.append(_row(str(index), icons[(index - 1) % len(icons)], item.name,
+                              f"{item.weight:.1f}", f"{item.sell_price:,}", item.rarity,
+                              rarity_tones.get(item.rarity, PAPER)))
+    if not state.inventory:
+        inventory.append(color("(пусто — купите первый артефакт на рынке)", MUTED))
+    market = [color("Предмет                       Покупка     Продажа   Спрос", MUTED)]
+    for item in state.market:
+        market.append(color(f"{item.id:<27}", YELLOW if item.rarity == "легендарный" else PAPER)
+                      + f" {item.buy_price:>9,}    " + color(f"{item.sell_price:>9,}", GREEN) + "   ▲")
+    if not state.market:
+        market.append(color("(рынок пуст)", MUTED))
+    selected = state.inventory[0] if state.inventory else (state.market[0] if state.market else None)
+    selected_name = selected.name if selected else "Нет выбранного артефакта"
+    selected_rarity = selected.rarity if selected else "—"
+    selected_weight = f"{selected.weight:.1f} кг" if selected else "—"
+    selected_value = f"{selected.sell_price:,} кр." if selected else "—"
     inspection = [
-        color("Осколок Пустоты", YELLOW, True) + "                 " + color("Легендарный", YELLOW),
+        color(selected_name, YELLOW, True) + "                 " + color(selected_rarity, YELLOW),
         rule("·")[:max(1, right_w - 2)],
-        "      /\\        " + color("Вес:", MUTED) + "                  0.5 кг",
-        "     /  \\       " + color("Базовая ценность:", MUTED) + "     " + color("575,000 кр.", GREEN),
+        "      /\\        " + color("Вес:", MUTED) + f"                  {selected_weight}",
+        "     /  \\       " + color("Базовая ценность:", MUTED) + "     " + color(selected_value, GREEN),
         "    / .  \\      " + color("Радиация:", MUTED) + "          +3 ед.",
         "    \\  . /      " + color("Стабильность:", MUTED) + "       27%",
         "     \\__/       " + color("Энергия:", MUTED) + "          87.4 ТэВ",
@@ -137,10 +140,10 @@ def dashboard(day: int = 42, gold: int = 248750, reputation: int = 68) -> None:
     ]
     location = ["Орбитальная станция «Гелиос»", "", "Фракция:        Союз Торговцев", "Тип:             Торговый хаб", "Услуги:          Рынок, Аукцион, Склад", "Особенность:     Нейтральная территория"]
     if compact:
-        for title, rows, tone in [("ИНВЕНТАРЬ · 6/20", inventory, GREEN), ("РЫНОК АРТЕФАКТОВ", market, CYAN), ("ОСМОТР АРТЕФАКТА", inspection, YELLOW), ("ЛОКАЦИЯ", location, BLUE)]:
+        for title, rows, tone in [(f"ИНВЕНТАРЬ · {len(state.inventory)}/20", inventory, GREEN), ("РЫНОК АРТЕФАКТОВ", market, CYAN), ("ОСМОТР АРТЕФАКТА", inspection, YELLOW), ("ЛОКАЦИЯ", location, BLUE)]:
             lines += _box(title, rows, w, tone) + [""]
     else:
-        top = [_box("ИНВЕНТАРЬ · 6/20", inventory, left_w, GREEN), _box("РЫНОК АРТЕФАКТОВ", market, left_w, CYAN), _box("ОСМОТР АРТЕФАКТА", inspection, right_w, YELLOW)]
+        top = [_box(f"ИНВЕНТАРЬ · {len(state.inventory)}/20", inventory, left_w, GREEN), _box("РЫНОК АРТЕФАКТОВ", market, left_w, CYAN), _box("ОСМОТР АРТЕФАКТА", inspection, right_w, YELLOW)]
         right_top = _box("ОСМОТР АРТЕФАКТА", inspection, right_w, YELLOW)
         for i in range(max(len(top[0]), len(right_top))):
             a = top[0][i] if i < len(top[0]) else ""
@@ -153,9 +156,9 @@ def dashboard(day: int = 42, gold: int = 248750, reputation: int = 68) -> None:
             b = right_bottom[i] if i < len(right_bottom) else ""
             lines.append(fit(a, left_w) + "  " + b)
         lines.append("")
-    journal = [color("Время       Операция       Предмет                  Цена        Итог", MUTED), "[14:12]     " + color("Продажа", GREEN) + "        Сердце Пепла             158,000     " + color("+158,000", GREEN), "[13:47]     " + color("Покупка", GREEN) + "        Коготь Наблюдателя        46,000     " + color("-92,000", RED), "[12:31]     " + color("Продажа", GREEN) + "        Древний Компас            128,000     " + color("+128,000", GREEN)]
-    lines += _box("ЖУРНАЛ СДЕЛОК", journal, w, BLUE)
-    lines += ["", color("[1] Инвентарь   [2] Рынок   [3] Контракты   [4] Аукцион   [5] Склад   [6] Локация   [I] Осмотр   [H] Помощь   [Q] Выход", GREEN), color("> buy void_shard ▮", GREEN, True)]
+    journal = [color("События", MUTED)] + ["• " + entry for entry in state.journal[-5:]]
+    lines += _box("ЖУРНАЛ СОБЫТИЙ", journal, w, BLUE)
+    lines += ["", color("inventory   market   inspect <id>   buy <id>   sell <id>   help   quit", GREEN), color("> ", GREEN, True)]
     print("\n".join(lines))
 
 
