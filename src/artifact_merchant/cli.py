@@ -63,6 +63,10 @@ def execute(command: Command, state: GameState, console: list[str]) -> bool:
         item_id = command.args[0] if command.args else ""
         ok, rows = (state.inspect(item_id) if name == "inspect" else state.research(item_id))
         console.extend([f"{'OK' if ok else 'ERROR'}: {row}" for row in rows])
+    elif name in {"contain", "cleanse"}:
+        item_id = command.args[0] if command.args else ""
+        ok, message = (state.contain(item_id) if name == "contain" else state.cleanse(item_id))
+        console.append(f"{'OK' if ok else 'ERROR'}: {message}")
     elif name in {"location", "orders", "factions", "upgrades", "wait", "save", "load"}:
         console.append(f"Команда принята: {name}. Модуль будет подключён следующим срезом.")
     elif name:

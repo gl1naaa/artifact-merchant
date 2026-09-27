@@ -19,6 +19,9 @@ class Artifact:
     authentic: bool = True
     hidden_property: str = "Неизвестное свойство"
     revealed_property: bool = False
+    curse: str | None = None
+    curse_revealed: bool = False
+    contained: bool = False
 
 
 @dataclass
@@ -53,7 +56,11 @@ class GameState:
                 "whispering_idol": "Шепчет имена будущих покупателей",
                 "quantum_stabilizer": "Стабилизирует нестабильные артефакты",
             }[item_id]
-            market.append(Artifact(item_id, name, category, rarity, weight, sell_price, buy_price, sell_price, hidden_property=hidden))
+            curses = {"void_shard": "Нестабильность Пустоты", "whispering_idol": "Шёпот мёртвого владельца"}
+            counterfeits = {"observer_claw"}
+            market.append(Artifact(item_id, name, category, rarity, weight, sell_price, buy_price, sell_price,
+                                   authentic=item_id not in counterfeits, hidden_property=hidden,
+                                   curse=curses.get(item_id)))
         state = cls(market=market, rng_seed=seed)
         state.journal.append("Лавка открыта. Новый день начинается.")
         return state
@@ -95,6 +102,10 @@ class GameState:
         rows = [f"{item.name} [{item.rarity}]", f"Категория: {item.category}", f"Вес: {item.weight:.1f} кг", f"Оценка: {item.sell_price:,} кр."]
         rows.append("Подлинность: не проверена" if not item.identified else ("Подлинность: подтверждена" if item.authentic else "Подлинность: сомнительна"))
         rows.append(f"Свойство: {item.hidden_property}" if item.revealed_property else "Свойство: неизвестно (нужна research)")
+        if item.curse_revealed:
+            rows.append(f"Проклятие: {item.curse or 'нет'}" + (" [изолировано]" if item.contained else " [активно]"))
+        else:
+            rows.append("Проклятие: неизвестно")
         return True, rows
 
     def research(self, item_id: str) -> tuple[bool, list[str]]:
@@ -108,9 +119,37 @@ class GameState:
             return False, [f"Недостаточно кредитов для исследования: нужно {cost:,} кр."]
         self.gold -= cost
         item.revealed_property = True
+        item.curse_revealed = True
         item.identified = True
-        self.journal.append(f"Исследование: раскрыто свойство {item.name} за {cost:,} кр.")
-        return True, [f"Исследование завершено: {item.hidden_property}", f"Стоимость: {cost:,} кр."]
+        self.journal.append(f"Исследование: раскрыты свойства {item.name} за {cost:,} кр.")
+        authenticity = "подделка обнаружена" if not item.authentic else "подлинность подтверждена"
+        curse = item.curse or "проклятий не обнаружено"
+        return True, [f"Исследование завершено: {item.hidden_property}", f"{authenticity}; проклятие: {curse}", f"Стоимость: {cost:,} кр."]
+
+    def contain(self, item_id: str) -> tuple[bool, str]:
+        item = self.find_inventory(item_id)
+        if item is None:
+            return False, "Изолировать можно только предмет в инвентаре."
+        if not item.curse_revealed or not item.curse:
+            return False, "Проклятие не обнаружено. Сначала используйте research."
+        item.contained = True
+        self.journal.append(f"Изоляция: {item.name} помещён в защитный контейнер.")
+        return True, f"{item.name} изолирован. Проклятие подавлено."
+
+    def cleanse(self, item_id: str) -> tuple[bool, str]:
+        item = self.find_inventory(item_id)
+        if item is None or not item.curse:
+            return False, "Проклятый предмет не найден в инвентаре."
+        if not item.curse_revealed:
+            return False, "Сначала раскройте проклятие через research."
+        cost = 3_000
+        if self.gold < cost:
+            return False, f"Недостаточно кредитов: нужно {cost:,} кр."
+        self.gold -= cost
+        item.curse = None
+        item.contained = False
+        self.journal.append(f"Очищение: проклятие снято с {item.name} за {cost:,} кр.")
+        return True, f"Проклятие снято с {item.name}."
 
     def status(self) -> str:
         return f"День {self.day} · {self.gold:,} кр. · репутация {self.reputation:+d} · инвентарь {len(self.inventory)}/20"
