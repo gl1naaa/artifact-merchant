@@ -164,8 +164,9 @@ def dashboard(state, console: list[str] | None = None) -> None:
     terminal_top = "┌─ TERMINAL · SCROLLBACK " + "─" * max(0, w - 26) + "┐"
     terminal_rows = [color(terminal_top, GREEN)]
     terminal_rows += [color("│ ", GREEN) + fit(row, w - 4) + color(" │", GREEN) for row in console_rows]
-    # The prompt is deliberately left open; cli.py closes the frame after Enter.
-    terminal_rows.append(color("│ ", GREEN))
+    # Reserve a complete prompt row; cli.py moves the cursor into this row.
+    terminal_rows.append(color("│ > ", GREEN) + " " * max(0, w - 6) + color("│", GREEN))
+    terminal_rows.append(color("└" + "─" * (w - 2) + "┘", GREEN))
     lines += [""] + terminal_rows
     print("\n".join(lines))
 
