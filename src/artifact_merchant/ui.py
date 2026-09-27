@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 
 RESET = "\033[0m"
@@ -26,8 +27,21 @@ def width() -> int:
     return max(40, min(shutil.get_terminal_size((80, 24)).columns, 120))
 
 
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
 def color(text: str, tone: str = PAPER, bold: bool = False) -> str:
     return f"{BOLD if bold else ''}{tone}{text}{RESET}"
+
+
+def visible(text: str) -> int:
+    return len(_ANSI.sub("", text))
+
+
+def fit(text: str, size: int) -> str:
+    if visible(text) <= size:
+        return text + " " * (size - visible(text))
+    return _ANSI.sub("", text)[:max(0, size - 1)] + "…"
 
 
 def rule(char: str = "─") -> str:
@@ -36,9 +50,9 @@ def rule(char: str = "─") -> str:
 
 def panel(title: str, rows: list[str], tone: str = CYAN) -> list[str]:
     inner = width() - 4
-    result = [color(f"┌─ {title} " + "─" * max(0, inner - len(title) - 3) + "┐", tone)]
+    result = [color(fit(f"┌─ {title} " + "─" * max(0, inner - len(title) - 3) + "┐", width()), tone)]
     for row in rows:
-        result.append(color("│ ", tone) + row[:inner].ljust(inner) + color(" │", tone))
+        result.append(color("│ ", tone) + fit(row, inner) + color(" │", tone))
     result.append(color("└" + "─" * (width() - 2) + "┘", tone))
     return result
 
@@ -59,9 +73,9 @@ def _box(title: str, rows: list[str], box_width: int, tone: str = CYAN) -> list[
     """A fixed-width box used by the trading terminal dashboard."""
     inner = max(8, box_width - 4)
     top = "┌─ " + title + " " + "─" * max(0, inner - len(title) - 3) + "┐"
-    result = [color(top[:box_width], tone)]
+    result = [color(fit(top, box_width), tone)]
     for row in rows:
-        result.append(color("│ ", tone) + row[:inner].ljust(inner) + color(" │", tone))
+        result.append(color("│ ", tone) + fit(row, inner) + color(" │", tone))
     result.append(color("└" + "─" * (box_width - 2) + "┘", tone))
     return result
 
@@ -127,9 +141,9 @@ def dashboard(day: int = 42, gold: int = 248750, reputation: int = 68) -> None:
             lines += _box(title, rows, w, tone) + [""]
     else:
         top = [_box("ИНВЕНТАРЬ · 6/20", inventory, left_w, GREEN), _box("РЫНОК АРТЕФАКТОВ", market, left_w, CYAN), _box("ОСМОТР АРТЕФАКТА", inspection, right_w, YELLOW)]
-        for a, b in zip(top[0], top[2]): lines.append(a.ljust(left_w) + "  " + b)
+        for a, b in zip(top[0], top[2]): lines.append(fit(a, left_w) + "  " + b)
         lines.append("")
-        for a, b in zip(top[1], _box("ЛОКАЦИЯ", location, right_w, BLUE)): lines.append(a.ljust(left_w) + "  " + b)
+        for a, b in zip(top[1], _box("ЛОКАЦИЯ", location, right_w, BLUE)): lines.append(fit(a, left_w) + "  " + b)
         lines.append("")
     journal = [color("Время       Операция       Предмет                  Цена        Итог", MUTED), "[14:12]     " + color("Продажа", GREEN) + "        Сердце Пепла             158,000     " + color("+158,000", GREEN), "[13:47]     " + color("Покупка", GREEN) + "        Коготь Наблюдателя        46,000     " + color("-92,000", RED), "[12:31]     " + color("Продажа", GREEN) + "        Древний Компас            128,000     " + color("+128,000", GREEN)]
     lines += _box("ЖУРНАЛ СДЕЛОК", journal, w, BLUE)
