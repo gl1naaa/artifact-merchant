@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "artifact-merchant"
+version = "0.1.0"
+description = "A terminal-first game about trading cursed magical artifacts"
+requires-python = ">=3.11"
+dependencies = ["rich>=13.7"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+artifact-merchant = "artifact_merchant.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
