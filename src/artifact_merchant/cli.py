@@ -78,7 +78,7 @@ def main() -> None:
             return
     state = GameState.new()
     while True:
-        dashboard(state.day, state.gold, state.reputation)
+        dashboard(state)
         try:
             command = parse(read_command("\n> "))
         except (EOFError, KeyboardInterrupt):
