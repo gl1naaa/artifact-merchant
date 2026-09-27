@@ -27,7 +27,7 @@ class Artifact:
 @dataclass
 class GameState:
     day: int = 1
-    gold: int = 250_000
+    gold: int = 600_000
     reputation: int = 0
     inventory: list[Artifact] = field(default_factory=list)
     market: list[Artifact] = field(default_factory=list)
