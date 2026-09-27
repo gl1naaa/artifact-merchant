@@ -6,6 +6,7 @@ from pathlib import Path
 
 from . import __version__
 from .commands import HELP, Command, load_script, parse
+from .input import read_command
 from .ui import dashboard, help_screen
 
 
@@ -19,7 +20,7 @@ def execute(command: Command) -> bool:
         help_screen()
     elif name in {"clear", "cls"}:
         return True
-    elif name in {"inventory", "market", "location", "inspect", "buy", "sell", "research"}:
+    elif name in {"inventory", "market", "location", "status", "orders", "factions", "upgrades", "journal", "wait", "save", "load", "inspect", "buy", "sell", "research"}:
         subject = f" {command.args[0]}" if command.args else ""
         print(f"\n  Команда принята: {name}{subject}")
         print("  Игровая логика этого раздела будет подключена следующим вертикальным срезом.")
@@ -49,7 +50,7 @@ def main() -> None:
     while True:
         dashboard()
         try:
-            command = parse(input("\n> "))
+            command = parse(read_command("\n> "))
         except (EOFError, KeyboardInterrupt):
             print("\nДо встречи.")
             return
