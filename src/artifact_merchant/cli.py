@@ -8,7 +8,7 @@ from . import __version__
 from .commands import HELP, Command, load_script, parse
 from .input import read_command
 from .game import GameState
-from .ui import dashboard, help_screen
+from .ui import console_bottom, console_prompt_end, dashboard, help_screen
 
 
 def _show_items(title: str, items: list) -> list[str]:
@@ -72,7 +72,8 @@ def main() -> None:
     while True:
         dashboard(state, console)
         try:
-            command = parse(read_command("\n> "))
+            command = parse(read_command("│ > "))
+            print(console_prompt_end() + "\n" + console_bottom())
         except (EOFError, KeyboardInterrupt):
             print("\nДо встречи.")
             return

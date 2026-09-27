@@ -161,9 +161,21 @@ def dashboard(state, console: list[str] | None = None) -> None:
     console = console or []
     console_rows = [color(line, GREEN if line.startswith("OK") or line.startswith(">") else PAPER) for line in console[-6:]]
     console_rows.append(color("$ terminal ready · type help", GREEN))
-    lines += [""] + _box("TERMINAL · SCROLLBACK", console_rows, w, GREEN)
-    lines += [color("$ ", GREEN, True)]
+    terminal_top = "┌─ TERMINAL · SCROLLBACK " + "─" * max(0, w - 26) + "┐"
+    terminal_rows = [color(terminal_top, GREEN)]
+    terminal_rows += [color("│ ", GREEN) + fit(row, w - 4) + color(" │", GREEN) for row in console_rows]
+    # The prompt is deliberately left open; cli.py closes the frame after Enter.
+    terminal_rows.append(color("│ ", GREEN))
+    lines += [""] + terminal_rows
     print("\n".join(lines))
+
+
+def console_prompt_end() -> str:
+    return color(" │", GREEN)
+
+
+def console_bottom() -> str:
+    return color("└" + "─" * (width() - 2) + "┘", GREEN)
 
 
 def help_screen() -> None:
